@@ -97,6 +97,21 @@
         const gridSize = 1;
         const boardSize = 20;
 
+        // --- Audio Setup ---
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+        let musicPlaying = false;
+        const songs = [
+            { name: 'Synth-Pop', baseNote: 130.81, sequence: [0, -2, 0, 3, 0, 5, 3, 0], type: 'square' }, // C3
+            { name: 'Power-Drive', baseNote: 110.00, sequence: [0, 0, 7, 0, 10, 7, 0, 0], type: 'sawtooth' }, // A2
+            { name: 'Dopamine-Hit', baseNote: 261.63, sequence: [0, 4, 7, 12, 7, 4, 0], type: 'sine' }, // C4 Arpeggio
+            { name: 'Retro-Pulse', baseNote: 98.00, sequence: [0, 0, 7, 0, 0, 7, 5, 0], type: 'square' }, // G2 Rhythm
+        ];
+        let currentSong;
+        let noteIndex = 0;
+        let musicIntervalId;
+
         // --- Game Logic ---
         function init() {
             loadHighScore();
@@ -173,6 +188,11 @@
             gameOverModal.classList.add('hidden');
             newHighScoreElement.classList.add('hidden');
             
+            if (musicPlaying) {
+                clearTimeout(musicIntervalId);
+                initAudio(); // Pick a new song for the next round
+            }
+
             startGame();
             animate();
         }
@@ -190,6 +210,54 @@
                 highScoreElement.textContent = `HI: ${highScore}`;
                 newHighScoreElement.classList.remove('hidden');
             }
+        }
+        
+        // --- Audio Functions ---
+        function initAudio() {
+            if (!audioCtx) {
+                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (!musicPlaying) {
+                gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gainNode.connect(audioCtx.destination);
+                oscillator = audioCtx.createOscillator();
+                oscillator.connect(gainNode);
+                oscillator.start();
+                musicPlaying = true;
+            }
+            
+            currentSong = songs[Math.floor(Math.random() * songs.length)];
+            oscillator.type = currentSong.type;
+            noteIndex = 0;
+            playMusicLoop();
+        }
+
+        function playMusicLoop() {
+            const musicSpeed = 250 - (score * 1.5);
+            const freq = currentSong.baseNote * Math.pow(2, currentSong.sequence[noteIndex] / 12);
+            
+            if (oscillator && audioCtx) {
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            }
+
+            noteIndex = (noteIndex + 1) % currentSong.sequence.length;
+            musicIntervalId = setTimeout(playMusicLoop, Math.max(100, musicSpeed));
+        }
+
+        function playEatSound() {
+            if (!audioCtx) return;
+            const eatOscillator = audioCtx.createOscillator();
+            const eatGain = audioCtx.createGain();
+            eatOscillator.connect(eatGain);
+            eatGain.connect(audioCtx.destination);
+
+            eatOscillator.type = 'triangle';
+            eatGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            eatOscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // High A5 note
+            eatGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            eatOscillator.start(audioCtx.currentTime);
+            eatOscillator.stop(audioCtx.currentTime + 0.2);
         }
         
         // --- Visuals ---
@@ -265,8 +333,8 @@
                 scoreElement.textContent = 'SCORE: ' + score;
                 
                 if (navigator.vibrate) navigator.vibrate(50);
+                playEatSound();
 
-                // Increase speed
                 updateInterval = Math.max(minSpeed, updateInterval - speedIncrement);
 
                 const newPart = createSnakePart(snake[snake.length - 1].position.clone());
@@ -326,6 +394,7 @@
         }
 
         function onKeyDown(event) {
+            if (!musicPlaying) initAudio();
             if (changingDirection) return;
 
             const key = event.key;

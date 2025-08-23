@@ -282,8 +282,10 @@
         function createSnakePart(position, isHead = false) {
             if (isHead) {
                 const headGroup = new THREE.Group();
-                const headGeometry = new THREE.SphereGeometry(gridSize / 2, 16, 16);
-                const headMaterial = new THREE.MeshLambertMaterial({ color: 0x48bb78 });
+                // Make the head sphere slightly larger
+                const headGeometry = new THREE.SphereGeometry(gridSize / 1.8, 16, 16); 
+                // Use a brighter color for the head
+                const headMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 }); 
                 const headMesh = new THREE.Mesh(headGeometry, headMaterial);
                 headMesh.castShadow = true;
                 headGroup.add(headMesh);
@@ -292,7 +294,8 @@
                 const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
                 
                 const eye1 = new THREE.Mesh(eyeGeometry, eyeMaterial);
-                eye1.position.set(gridSize / 4, gridSize / 6, gridSize / 3);
+                // Adjust eye position for the larger head
+                eye1.position.set(gridSize / 4, gridSize / 6, gridSize / 2.5); 
                 headGroup.add(eye1);
 
                 const eye2 = eye1.clone();

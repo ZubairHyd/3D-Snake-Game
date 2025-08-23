@@ -90,10 +90,13 @@
         let direction = new THREE.Vector3(1, 0, 0);
         let changingDirection = false;
         let lastUpdateTime = 0;
-        let updateInterval = 150; // Initial speed
-        const initialSpeed = 150;
+        
+        // --- Tuned Speed Settings ---
+        let updateInterval = 200; // Slower initial speed
+        const initialSpeed = 200;
         const minSpeed = 60; // Maximum speed
-        const speedIncrement = 2.5; // How much faster it gets per food
+        const speedIncrement = 3; // Gradual speed increase
+        
         const gridSize = 1;
         const boardSize = 20;
 
@@ -133,8 +136,7 @@
             light.castShadow = true;
             scene.add(light);
 
-            // --- Eye-Catchy Board & Background ---
-            const gridHelper = new THREE.GridHelper(boardSize, boardSize, 0x00ffff, 0xff00ff); // Cyan and Magenta grid
+            const gridHelper = new THREE.GridHelper(boardSize, boardSize, 0x00ffff, 0xff00ff);
             scene.add(gridHelper);
             
             const starGeometry = new THREE.SphereGeometry(500, 64, 64);
@@ -184,20 +186,19 @@
             score = 0;
             scoreElement.textContent = 'SCORE: 0';
             direction.set(1, 0, 0);
-            updateInterval = initialSpeed; // Reset speed
+            updateInterval = initialSpeed;
             gameOverModal.classList.add('hidden');
             newHighScoreElement.classList.add('hidden');
             
             if (musicPlaying) {
                 clearTimeout(musicIntervalId);
-                initAudio(); // Pick a new song for the next round
+                initAudio();
             }
 
             startGame();
             animate();
         }
 
-        // --- High Score Logic ---
         function loadHighScore() {
             highScore = localStorage.getItem('snake3DHighScore') || 0;
             highScoreElement.textContent = `HI: ${highScore}`;
@@ -212,7 +213,6 @@
             }
         }
         
-        // --- Audio Functions ---
         function initAudio() {
             if (!audioCtx) {
                  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -254,13 +254,12 @@
 
             eatOscillator.type = 'triangle';
             eatGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            eatOscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // High A5 note
+            eatOscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
             eatGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
             eatOscillator.start(audioCtx.currentTime);
             eatOscillator.stop(audioCtx.currentTime + 0.2);
         }
         
-        // --- Visuals ---
         function createStarTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
@@ -281,12 +280,35 @@
         }
 
         function createSnakePart(position, isHead = false) {
-            const geometry = new THREE.SphereGeometry(gridSize / 2, 16, 16); 
-            const material = new THREE.MeshLambertMaterial({ color: isHead ? 0x48bb78 : 0x38a169 });
-            const part = new THREE.Mesh(geometry, material);
-            part.position.copy(position);
-            part.castShadow = true;
-            return part;
+            if (isHead) {
+                const headGroup = new THREE.Group();
+                const headGeometry = new THREE.SphereGeometry(gridSize / 2, 16, 16);
+                const headMaterial = new THREE.MeshLambertMaterial({ color: 0x48bb78 });
+                const headMesh = new THREE.Mesh(headGeometry, headMaterial);
+                headMesh.castShadow = true;
+                headGroup.add(headMesh);
+
+                const eyeGeometry = new THREE.SphereGeometry(gridSize / 8, 12, 12);
+                const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                
+                const eye1 = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                eye1.position.set(gridSize / 4, gridSize / 6, gridSize / 3);
+                headGroup.add(eye1);
+
+                const eye2 = eye1.clone();
+                eye2.position.x = -gridSize / 4;
+                headGroup.add(eye2);
+                
+                headGroup.position.copy(position);
+                return headGroup;
+            } else {
+                const geometry = new THREE.SphereGeometry(gridSize / 2, 16, 16); 
+                const material = new THREE.MeshLambertMaterial({ color: 0x38a169 });
+                const part = new THREE.Mesh(geometry, material);
+                part.position.copy(position);
+                part.castShadow = true;
+                return part;
+            }
         }
 
         function generateFood() {
@@ -300,7 +322,7 @@
                 }
             }
             
-            const geometry = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
+            const geometry = new THREE.SphereGeometry(gridSize / 2.5, 16, 16); // Make food a sphere
             const material = new THREE.MeshLambertMaterial({ color: 0xe53e3e });
             food = new THREE.Mesh(geometry, material);
             food.position.copy(position);
@@ -310,6 +332,10 @@
 
         function moveSnake() {
             const newHeadPos = snake[0].position.clone().add(direction.clone().multiplyScalar(gridSize));
+            
+            // Orient the head to look at the next position before moving
+            snake[0].lookAt(newHeadPos);
+
             for (let i = snake.length - 1; i > 0; i--) {
                 snake[i].position.copy(snake[i - 1].position);
             }
@@ -337,7 +363,7 @@
 
                 updateInterval = Math.max(minSpeed, updateInterval - speedIncrement);
 
-                const newPart = createSnakePart(snake[snake.length - 1].position.clone());
+                const newPart = createSnakePart(snake[snake.length - 1].position.clone(), false);
                 snake.push(newPart);
                 scene.add(newPart);
                 
